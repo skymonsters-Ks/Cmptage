@@ -1,0 +1,23 @@
+;$c>"%f/copy.hsp"
+
+;#define global CONSOLE
+
+#define global CAPTION    "Cmptage"
+#define global VERSION_S  "0.3.0.0"
+#define global VERSION_I  300
+#define global AUTHOR     "K-s (@skymonsters_Ks)"
+
+#ifdef CONSOLE
+#define global EXEFILE "cmptage_cl"
+#packopt runtime       "hsp3cl.hrt"
+#else
+#define global EXEFILE "cmptage"
+#packopt runtime       "hsp3c.hrt"
+#packopt xsize 1
+#packopt ysize 1
+#packopt hide 1
+#endif
+
+#packopt name EXEFILE
+
+#include "src/main.hsp"

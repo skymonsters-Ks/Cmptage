@@ -1,0 +1,636 @@
+;$s>../make.hsp
+;$c>"%f/copy.hsp"
+
+#include "hspcmp.as"
+#include "hspext.as"
+#include "hspinet.as"
+#include "kernel32.as"
+#include "user32.as"
+
+#ifdef CONSOLE
+#define ctype ERR_DIALOG(%1) mes CAPTION + " Error - " + %1
+#define ctype INFO_DIALOG(%1) mes CAPTION + " Info - " + %1
+#else
+#define ctype ERR_DIALOG(%1) dialog %1, 1, "Error - " + CAPTION
+#define ctype INFO_DIALOG(%1) dialog %1, , "Info - " + CAPTION
+#endif
+
+#define DEFAULT_RUNTIME "hsp3.exe"
+#define SOURCE_CONVERTER "hsp3cnv.exe"
+#define SCRIPT_TMPFILE "hsptmp"
+#define UNDEF_FILE "???"
+
+; make_file_id
+#enum MAKE_EXE = 1
+#enum MAKE_AX
+#enum MAKE_CPP
+
+#define EX_LOAD_SIZE 512
+
+#define ctype toLower(%1) getpath(%1, 16)
+
+
+/*
+	引用符つき文字列分割、取得モジュール
+	in 分割文字列、 _delim 分割文字、 _quot 引用符、 _esc エスケープ文字
+	引用符で囲まれた文字列は分割文字があっても分割されない、分割後引用符は除かれる
+	引用符自体を文字列に用いる場合は直前にエスケープ文字を置く
+	splitString で分解、 stat に分割数が返る
+	getSplitString で分割した文字列が res に返る、 id は分割文字列のインデックス
+*/
+#module
+
+#deffunc splitString var in, int _delim, int _quot, int _esc
+
+	sdim out, strlen(in) + 2
+	dim p_src
+	p_dst = 1
+	index = 1
+	dim num
+	dim qf
+	if (peek(in) == _quot) {
+		qf = 1
+		p_src++
+	}
+	repeat
+		c = peek(in, p_src)
+		if (c == 0) {
+			num++
+			break
+		} else : if (c == _delim) {
+			if (qf) {
+				poke out, p_dst, _delim
+				p_dst++
+			} else {
+				if (peek(out, p_dst - 1)) {
+					poke out, p_dst
+					p_dst++
+					num++
+					index(num) = p_dst
+				}
+			}
+		} else : if (c == _quot) {
+			if (peek(in, p_src - 1) == _esc) {
+				poke out, p_dst - 1, _quot
+			} else {
+				qf ^= 1
+			}	
+		} else {
+			poke out, p_dst, c
+			p_dst++
+		}
+		p_src++
+	loop
+	if (peek(out, p_dst - 1)) : else {
+		if (num > 0) : num--
+	}
+	return num
+
+#deffunc getSplitString var res, int id
+
+	if (id < num) {
+		getstr res, out, index(id)
+	}
+	return
+
+#global
+
+
+/*
+	特殊文字置換モジュール
+	a 対象文字列、meta メタ文字コード、src 置換される文字コード配列、 rep 置換文字列配列
+	メタ文字を続けるとエスケープ
+	a は十分なメモリを確保しておく（オーバーフローするとエラーで落ちる）
+*/
+#module
+
+#deffunc replaceMeta var a, int meta, array src, array rep
+
+	s = strf("%c", meta)
+	i = instr(a, 0, s)
+	if (i == -1) {
+		return
+	}
+	la = strlen(a)
+	p = i
+	repeat
+		c = peek(a, p + 1)
+		repeat length(src)
+			if (c == src(cnt)) {
+				lr = strlen(rep(cnt))
+				memcpy a, a, la - p - 2, p + lr, p + 2
+				memcpy a, rep(cnt), lr, p
+				la += lr - 2
+				p += lr - 1
+				break
+			}
+		loop
+		if (c == meta) {
+			memcpy a, a, la - p - 1, p, p + 1
+			la--
+			p += 1
+		}
+		p++
+		i = instr(a, p, s)
+		if (i == -1) {
+			break
+		}
+		p += i
+	loop
+	poke a, la
+	return
+
+#global
+
+
+/*
+	特殊行取得モジュール
+	行頭が文字列 ex で始まる行を a に返す（文字列 ex は除かれる）
+	getExLineInit で対象バッファ buf、文字列 ex を初期化
+	getExLineNext で次を検索・取得（statにインデックス、-1は終わりまで検索終了）
+	ex に空文字列を指定すると getExLineNext は -1 を返す
+*/
+#module
+
+#deffunc getExLineInit var buf, str ex
+
+	p = 0
+	b = "\n" + buf
+	e = "\n" + ex
+	l = strlen(ex)
+	if (l == 0) {
+		p = strlen(buf) + 1 ; 無限ループ対策
+	}
+	return
+	
+#deffunc getExLineNext var a
+
+	i = instr(b, p, e)
+	if (i == -1) {
+		a = ""
+		return -1
+	}
+	p += i
+	r = p
+	getstr a, b, p + 2 + l
+	p += strsize + l
+	return r
+
+#global
+
+
+*start
+
+	; コマンドラインパラメータ取得
+	;
+	ts = dir_cmdline
+	splitString ts, ' ', '"', '\\'
+	if (stat == 0) {
+		ts = strf("%s %s\n\nauthor: %s\nbuild: date %s %s HSP ver. %x", CAPTION, VERSION_S, AUTHOR, __date__, __time__, hspver)
+#ifdef CONSOLE
+		mes ts
+#else
+		s = "About"
+		mbp = 40, hwnd, hinstance, varptr(ts), varptr(s), $80, 128
+		MessageBeep $40
+		MessageBoxIndirect varptr(mbp)
+#endif
+		end
+	}
+	cmdlineParamNum = stat
+
+	; デフォルトオプション
+	;
+	debug_info = 1  ; デバッグ情報付加フラグ
+	debug_disp = 0  ; デバッグウィンドウ表示フラグ
+	report_disp = 0  ; 結果レポート表示フラグ
+	cmdline_use = 0  ; コマンドラインウィンドウ使用フラグ
+	exmacro_use = 1  ; HSP拡張マクロ使用フラグ
+	cnvutf8_use = 0  ; UTF-8コンパイルフラグ
+	make_file_id = 0  ; ファイル生成フラグ（MAKE_xxx）
+	exdefine_use = 0  ; 拡張定義使用フラグ
+	hwnd_tpEdit = 0  ; hsptmp使用フラグ（TeraPadエディットコントロールのハンドル）
+
+	sdim runOption, 512  ; 起動オプション
+
+	file = ""
+	file_exist = 0
+	
+	; コマンドラインパラメータをチェック
+	;
+	repeat cmdlineParamNum
+		getSplitString param, cnt
+		if (peek(param) != '/') {
+			file = param
+			exist file
+			file_exist = (strsize >= 0)
+			continue
+		} else {
+			getstr opt, param, 1, '='
+			switch opt
+			case "c"
+				if (strsize >= 2) {
+					getstr runOption, param, 3
+				} else {
+					cmdline_use = 1
+				}
+				continue
+			case "d"
+				debug_info = 1
+				debug_disp = 1
+				make_file_id = 0
+				continue
+			case "e"
+				exdefine_use = 1
+				exLoadAll = 0
+				if (strsize >= 2) {
+					getstr s, param, 3
+					if (toLower(s) == "all") {
+						exLoadAll = 1
+					}
+				}
+				continue
+			case "u"
+				cnvutf8_use = 1
+				continue
+			case "ma"
+				debug_info = 0
+				debug_disp = 0
+				make_file_id = MAKE_AX
+				continue
+			case "me"
+				debug_info = 0
+				debug_disp = 0
+				make_file_id = MAKE_EXE
+				continue
+			case "mc"
+				debug_info = 0
+				debug_disp = 0
+				make_file_id = MAKE_CPP
+				dim cnvUTF
+				if (strsize >= 3) {
+					getstr s, param, 4
+					s = toLower(s)
+					if (s == "utf8") : cnvUTF = 2
+					if (s == "sjis") : cnvUTF = 1
+				}
+				continue
+			case "r"
+				report_disp = 1
+				continue
+			case "t"
+				; TeraPad 専用
+				; ウィンドウハンドルからエディットコントロールのハンドルを取得
+				getstr s, param, 3
+				hwnd_tp = int(s)
+				sendmsg hwnd_tp, $8000+402  ; WM_APP+402 (TPMSG_GETACTIVEEDIT)
+				hwnd_tpEdit = stat
+				if (hwnd_tpEdit == 0) {
+					ERR_DIALOG("エディットコントロールのハンドル取得失敗\n（/t=オプションはTeraPad専用です）")
+					end
+				}
+				continue
+			default
+				ERR_DIALOG(param + " は不正なオプションです")
+				end
+			swend
+		}
+	loop
+
+	if (file_exist) {
+		if (hwnd_tpEdit) {
+			; 編集中のファイル
+			scrName = SCRIPT_TMPFILE
+			scrName_err = getpath(file, 8)
+		} else {
+			; 保存済みのファイル
+			scrName = getpath(file, 8)
+			scrName_err = scrName
+		}
+		scrDir = getpath(file, 32)
+	} else {
+		if (hwnd_tpEdit) {
+			; まだ保存されていない新規ファイル（無題タイトル）
+			scrName = SCRIPT_TMPFILE
+			scrName_err = UNDEF_FILE
+			scrDir = dir_exe + "\\"
+		} else {
+			ERR_DIALOG("ファイル " + file + " がありません")
+			end
+		}
+	}
+
+
+	chdir scrDir
+
+
+	; テンポラリファイル作成
+	;
+	if (hwnd_tpEdit) {
+		sendmsg hwnd_tpEdit, $e  ; WM_GETTEXTLENGTH
+#if 0
+		; ウィンドウメッセージ（WM_GETTEXT）で取得
+		s = stat
+		dim t, 37  ; OSVERSIONINFO
+		t = 148
+		GetVersionEx varptr(t)
+		if ((t(4) < 2) & (s > 65534)) {
+			ERR_DIALOG("テキストサイズが取得限度を超えています")
+			end
+		}
+		dim t
+		sdim buf, s + 1
+		sendmsg hwnd_tpEdit, $d, s + 1, varptr(buf)  ; WM_GETTEXT
+		bsave scrName, buf, stat
+#else
+		; スワップファイル経由（TeraPad 0.73以降）で取得
+		s = stat + 1
+		ts = "TeraPad_Map_" + hwnd_tp
+		CreateFileMapping $ffffffff, 0, 4, 0, s, varptr(ts)  ; INVALID_HANDLE_VALUE, PAGE_READWRITE
+		h = stat
+		t = 0   ; 取得成功フラグ
+		if (h != 0) {
+			MapViewOfFile h, 2, 0, 0, 0  ; FILE_MAP_WRITE
+			p = stat
+			if (p != 0) {
+				dupptr buf, p, s
+				UnmapViewOfFile p
+				sendmsg hwnd_tp, $8000+410  ; WM_APP+410 (TPMSG_GETTEXT)
+				if (stat) {
+					MapViewOfFile h, 4, 0, 0, 0  ; FILE_MAP_READ
+					p = stat
+					if (p != 0) {
+						dupptr buf, p, s, 2
+						bsave scrName, buf, s - 1
+						UnmapViewOfFile p
+						t = 1
+					}
+				}
+				sdim buf
+			}
+			CloseHandle h
+		}
+		if (t == 0) {
+			ERR_DIALOG("テキストの取得に失敗しました")
+			end
+		}
+#endif
+	}
+
+
+	; 拡張定義
+	;
+	if (exdefine_use) {
+		exist scrName
+		if (strsize > EX_LOAD_SIZE) {
+			if (exLoadAll) {
+				exLoadSize = strsize
+			} else {
+				exLoadSize = EX_LOAD_SIZE
+			}
+		} else {
+			if (strsize == -1) {
+				ERR_DIALOG("ファイル " + scrName + " が読み込めませんでした")
+				end
+			}
+			exLoadSize = strsize
+		}
+		sdim buf, exLoadSize + 1
+		bload scrName, buf
+		getExLineInit buf, ";$"
+		repeat
+			getExLineNext ts
+			if (stat == -1) {
+				break
+			}
+			getstr opt, ts, 0, '>'
+			if (opt == "s") {
+				; コンパイル対象変更(;$s>) 行末まで（パス端の半角スペース駆除）
+				if (hwnd_tpEdit) {
+					ERR_DIALOG("/t= オプションとコンパイル対象変更は併用できません")
+					end
+				}
+				getstr ts, ts, 2
+				ts = strtrim(ts)
+				exist ts
+				if (strsize == -1) {
+					ERR_DIALOG("ファイル " + ts + " がありません")
+					end
+				}
+				path = getpath(ts, 32)
+				if (path == "") {
+					scrName = ts
+				} else {
+					scrName = getpath(ts, 8)
+					chdir path
+					scrDir = dir_cur + "\\"
+				}
+				scrName_err = scrName
+				continue
+			}
+			if (opt == "c") {
+				; コマンドライン指定(;$c>) 行末まで
+				getstr runOption, ts, 2
+				continue
+			}
+		loop
+		sdim buf
+	}
+
+
+	if (debug_info) {
+		objName = "obj"
+	} else {
+		if (make_file_id == MAKE_CPP) {
+			if (scrName_err == UNDEF_FILE) {
+				ts = scrName
+			} else {
+				ts = scrName_err
+			}
+			objName = getpath(ts, 1) + ".ax"
+		} else {
+			objName = "start.ax"
+			exist scrDir + objName
+			axsize_old = strsize
+		}
+	}
+
+
+	; コンパイル
+	;
+	hsc_ini scrName
+	hsc_refname scrName_err
+	hsc_objname objName
+	hsc_comp debug_info | (cnvutf8_use << 2), (exmacro_use ^ 1) | ((make_file_id == MAKE_EXE) << 2), debug_disp
+	if (stat != 0) {
+		goto *dispReport
+	}
+
+
+	; ファイル作成（exe, ax, cpp）
+	;
+	if (debug_info == 0) {
+		switch make_file_id
+		case MAKE_EXE
+			hsc3_make dir_exe + "\\runtime"
+			if (stat) {
+				ERR_DIALOG("実行ファイル作成に失敗しました")
+			} else {
+				INFO_DIALOG("実行ファイルを作成しました")
+			}
+			swbreak
+		case MAKE_AX
+			exist scrDir + objName
+			axsize = strsize
+			if (axsize_old == -1) {
+				dif = axsize
+			} else {
+				dif = axsize - axsize_old
+			}
+			if (dif > 0) {
+				ts = "+"
+			} else {
+				ts = ""
+			}
+			if (dif) {
+				ts = " (" + ts + dif + " バイト)"
+			} else {
+				ts = ""
+			}
+			INFO_DIALOG("start.ax を作成しました : " + axsize + " バイト" + ts)
+			swbreak
+		case MAKE_CPP
+			sdim buf, 32000
+			fn = getpath(objName, 1)
+			pipeexec buf, strf("%s\\%s \"%s\"", dir_exe, SOURCE_CONVERTER, fn), 1
+			if (stat) {
+				ERR_DIALOG(SOURCE_CONVERTER + " を実行できませんでした")
+				end
+			}
+			sdim ts, 4096
+			repeat
+				pipeget ts
+				if (stat == 0) : break
+				await 10
+			loop
+			fn += ".cpp"
+			exist fn
+			fs = strsize
+			if (fs <= 0) {
+				ERR_DIALOG(SOURCE_CONVERTER + " の変換でエラーが発生しました")
+				end
+			}
+#ifndef CONSOLE
+			if (cnvUTF == 0) {
+				dialog "UTF-8 に変換しますか？", 2, CAPTION
+				if (stat == 6) : cnvUTF = 2
+			}
+#endif
+			if (cnvUTF == 2) {
+				ct = "w", "(UTF-8)"
+			} else {
+				ct = "s", "(Shift_JIS)"
+			}
+			t = fs * 2
+			sdim ts, t
+			notesel buf
+			noteload fn
+			nkfcnv ts, buf, ct, , t
+			notesel ts
+			notesave fn
+			INFO_DIALOG(fn + ct(1) + " を作成しました")
+			swbreak
+		swend
+		end
+	}
+
+
+	if (report_disp) : goto *dispReport
+
+
+	; ランタイム指定
+	;
+	sdim runtimeFile
+	hsc3_getruntime runtimeFile, objName
+	if (runtimeFile == "") {
+		runtimeFile = DEFAULT_RUNTIME
+	}
+
+
+	; コマンドライン入力ウィンドウ
+	;
+#ifndef CONSOLE
+	if (cmdline_use) {
+		screen 0, 400, 70, 2
+		syscolor 15
+		boxf
+		pos 10, 10
+		input runOption, 380, 20
+		objsize 120, 24
+		pos 270, 38
+		button goto "実行", *@f
+		sendmsg objinfo(stat, 2), $f4, $1
+		onkey goto *evKey1
+		title "コマンドライン文字列の入力 - " + CAPTION
+		gsel 0, 1
+	} else {
+		goto *@f
+	}
+	stop
+*evKey1
+	if (wparam == 13) : goto *@f  ; [Enter]
+	if (wparam == 27) : end       ; [esc]
+	stop
+#endif
+
+*@
+
+	; 実行
+	;
+	sdim ts, 512
+	ts = strf("\"%s\\%s\" %s", dir_exe, runtimeFile, objName)
+	if (runOption != "") {
+		t = 'f',     'e'
+		r = dir_cur, dir_exe
+		replaceMeta runOption, '%', t, r
+		ts += " " + runOption
+	}
+	hsc3_run ts
+
+	end
+
+*dispReport
+
+	; 結果レポートウィンドウ
+	;
+	dim s
+	hsc3_messize s
+	sdim ts, s + 1
+	hsc_getmes ts
+
+#ifdef CONSOLE
+	mes CAPTION + " - 結果レポート: " + scrName_err
+	mes ts
+#else
+	screen 0, 400, 242, 2
+	syscolor 15
+	boxf
+	pos 10, 10
+	mesbox ts, 380, 192, 4
+	objsize 120, 24
+	pos 270, 210
+	button goto "閉じる", *bye
+	sendmsg objinfo(stat, 2), $f4, $1
+	onkey goto *evKey2
+	objsel 1
+	title "結果レポート: " + scrName_err + " - " + CAPTION
+	gsel 0, 1
+	stop
+
+*evKey2
+	if ((wparam == 13) | (wparam == 27)) : end  ; [Enter] or [esc]
+	stop
+#endif
+
+*bye
+	end

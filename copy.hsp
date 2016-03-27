@@ -1,0 +1,21 @@
+; HSPインストールフォルダにコピーします
+
+	fn = "cmptage.exe", "cmptage_cl.exe"
+	foreach fn
+		f = fn(cnt)
+		df = dir_exe + "/" + f
+		exist f
+		srcsize = strsize
+		exist df
+		if (strsize >= 0) {
+			dstsize = strsize
+		} else {
+			dstsize = 0
+		}
+		dialog f + " をHSPフォルダにコピーしますか？\n\nsize: " + dstsize + " -> " + srcsize + " [" + (srcsize - dstsize) + "]", 2
+		if (stat == 6) {
+			bcopy f, df
+			dialog "コピー完了！"
+		}
+	loop
+	end
