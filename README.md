@@ -1,5 +1,7 @@
 ﻿# Cmptage
 
+- [binary package](https://github.com/skymonsters-Ks/Cmptage/releases)
+
 [TeraPad](http://www5f.biglobe.ne.jp/~t-susumu/library/tpad.html) などのテキストエディタで編集中の
 [HSP](http://hsp.tv/)スクリプトをコンパイル・実行するためのツールです。
 標準のHSPスクリプトエディタのコンパイル機能に加え、以下の機能があります。
@@ -107,11 +109,5 @@ sampleフォルダの拡張定義のサンプル exdefine_main.hsp, exdefine_mod
 
 ## ライセンス
 
-[NYSL（Version 0.9982）](http://www.kmonos.net/nysl/)
+- [NYSL（Version 0.9982）](http://www.kmonos.net/nysl/)
 
-
-
-## 更新履歴
-
-- 2016/03/28 ver.0.3.0.0
-  - 初公開
