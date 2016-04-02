@@ -18,6 +18,7 @@
 #define DEFAULT_RUNTIME "hsp3.exe"
 #define SOURCE_CONVERTER "hsp3cnv.exe"
 #define SCRIPT_TMPFILE "hsptmp"
+#define EXDEF_FILE ".cmpexdef"
 #define UNDEF_FILE "???"
 
 ; make_file_id
@@ -212,6 +213,7 @@
 	hwnd_tpEdit = 0  ; hsptmp使用フラグ（TeraPadエディットコントロールのハンドル）
 
 	sdim runOption, 512  ; 起動オプション
+	sdim exPath, 256  ; 拡張定義での変更ディレクトリ
 
 	file = ""
 	file_exist = 0
@@ -381,62 +383,55 @@
 	; 拡張定義
 	;
 	if (exdefine_use) {
-		exist scrName
-		if (strsize > EX_LOAD_SIZE) {
-			if (exLoadAll) {
+		exdefName = EXDEF_FILE, scrName
+		foreach exdefName
+			exist exdefName(cnt)
+			if (strsize < 0) : continue
+			if ((exLoadAll) || (strsize < EX_LOAD_SIZE)) {
 				exLoadSize = strsize
 			} else {
 				exLoadSize = EX_LOAD_SIZE
 			}
-		} else {
-			if (strsize == -1) {
-				ERR_DIALOG("ファイル " + scrName + " が読み込めませんでした")
-				end
-			}
-			exLoadSize = strsize
-		}
-		sdim buf, exLoadSize + 1
-		bload scrName, buf
-		getExLineInit buf, ";$"
-		repeat
-			getExLineNext ts
-			if (stat == -1) {
-				break
-			}
-			getstr opt, ts, 0, '>'
-			if (opt == "s") {
-				; コンパイル対象変更(;$s>) 行末まで（パス端の半角スペース駆除）
-				if (hwnd_tpEdit) {
-					ERR_DIALOG("/t= オプションとコンパイル対象変更は併用できません")
-					end
+			sdim buf, exLoadSize + 1
+			bload exdefName(cnt), buf
+			getExLineInit buf, ";$"
+			repeat
+				getExLineNext ts
+				if (stat == -1) {
+					break
 				}
-				getstr ts, ts, 2
-				ts = strtrim(ts)
-				exist ts
-				if (strsize == -1) {
-					ERR_DIALOG("ファイル " + ts + " がありません")
-					end
-				}
-				path = getpath(ts, 32)
-				if (path == "") {
-					scrName = ts
-				} else {
+				getstr opt, ts, 0, '>'
+				if (opt == "s") {
+					; コンパイル対象変更(;$s>) 行末まで（パス端の半角スペース駆除）
+					if (hwnd_tpEdit) {
+						ERR_DIALOG("/t= オプションとコンパイル対象変更は併用できません")
+						end
+					}
+					getstr ts, ts, 2
+					ts = strtrim(ts)
+					exist ts
+					if (strsize == -1) {
+						ERR_DIALOG("ファイル " + ts + " がありません")
+						end
+					}
+					exPath = getpath(ts, 32)
 					scrName = getpath(ts, 8)
-					chdir path
-					scrDir = dir_cur + "\\"
+					scrName_err = scrName
+					continue
 				}
-				scrName_err = scrName
-				continue
-			}
-			if (opt == "c") {
-				; コマンドライン指定(;$c>) 行末まで
-				getstr runOption, ts, 2
-				continue
-			}
+				if (opt == "c") {
+					; コマンドライン指定(;$c>) 行末まで
+					getstr runOption, ts, 2
+					continue
+				}
+			loop
 		loop
-		sdim buf
 	}
 
+	if (exPath != "") {
+		chdir exPath
+		scrDir = dir_cur + "\\"
+	}
 
 	if (debug_info) {
 		objName = "obj"
