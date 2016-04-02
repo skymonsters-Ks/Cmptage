@@ -1,6 +1,6 @@
 ;$c>"%f/copy.hsp"
 
-;#define global CONSOLE
+; #define global CONSOLE
 
 #define global CAPTION    "Cmptage"
 #define global VERSION_S  "0.3.0.0"
@@ -9,10 +9,10 @@
 
 #ifdef CONSOLE
 #define global EXEFILE "cmptage_cl"
-#packopt runtime       "hsp3cl.hrt"
+#runtime "hsp3cl"
 #else
 #define global EXEFILE "cmptage"
-#packopt runtime       "hsp3c.hrt"
+#runtime "hsp3c"
 #packopt xsize 1
 #packopt ysize 1
 #packopt hide 1
