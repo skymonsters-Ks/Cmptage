@@ -2,10 +2,9 @@
 
 ; #define global CONSOLE
 
-#define global CAPTION    "Cmptage"
-#define global VERSION_S  "0.3.0.0"
-#define global VERSION_I  300
-#define global AUTHOR     "K-s (@skymonsters_Ks)"
+#define global CAPTION  "Cmptage"
+#define global VERSION  "v0.4.0.0"
+#define global AUTHOR   "K-s (@skymonsters_Ks)"
 
 #ifdef CONSOLE
 #define global EXEFILE "cmptage_cl"

@@ -4,7 +4,7 @@
 	上記の拡張定義(;$xxx>)は行頭に書かないとスキップされます
 	また同じ定義がある場合は後に指定されたほうが有効になります
 */
-#include "exdefine_module.hsp"
+#include "exdefine1_module.hsp"
 
 *start
 	mes "コマンドライン文字列"

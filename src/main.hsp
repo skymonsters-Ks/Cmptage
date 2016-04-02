@@ -187,7 +187,7 @@
 	ts = dir_cmdline
 	splitString ts, ' ', '"', '\\'
 	if (stat == 0) {
-		ts = strf("%s %s\n\nauthor: %s\nbuild: date %s %s HSP ver. %x", CAPTION, VERSION_S, AUTHOR, __date__, __time__, hspver)
+		ts = strf("%s %s\n\nauthor: %s\nbuild: date %s %s HSP ver. %x", CAPTION, VERSION, AUTHOR, __date__, __time__, hspver)
 #ifdef CONSOLE
 		mes ts
 #else
