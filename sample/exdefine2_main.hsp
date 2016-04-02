@@ -1,0 +1,11 @@
+
+#include "module/exdefine2_module1.hsp"
+#include "module/exdefine2_module2.hsp"
+
+*start
+	mes "コマンドライン文字列"
+	mes dir_cmdline
+	mes ""
+	mes "calc1 の計算結果 " + calc1(1, 2, 3)
+	mes "calc2 の計算結果 " + calc2(4, 5, 6)
+	stop

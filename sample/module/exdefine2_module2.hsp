@@ -1,0 +1,13 @@
+;$c>from module2  %%eの特殊文字展開 %e
+/*
+	このファイルにも .cmpexdef の定義が適用されますが
+	スクリプトファイルに記述された定義の方が優先されるので
+	コマンドライン文字列の定義は上書きされます
+*/
+#module
+
+#defcfunc calc2 int a, int b, int c
+
+	return (a * b / c); * 1000
+
+#global
