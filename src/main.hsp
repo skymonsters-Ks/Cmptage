@@ -215,6 +215,7 @@
 	sdim runOption, 512  ; 起動オプション
 	sdim exPath, 256  ; 拡張定義での変更ディレクトリ
 	axName = ""  ; axファイル名
+	axDir = ""  ; axファイル出力ディレクトリ
 
 	file = ""
 	file_exist = 0
@@ -260,6 +261,11 @@
 				debug_info = 0
 				debug_disp = 0
 				make_file_id = MAKE_AX
+				if (strsize >= 3) {
+					getstr s, param, 4
+					axDir = getpath(s, 32)
+					axName = getpath(s, 8)
+				}
 				continue
 			case "me"
 				debug_info = 0
@@ -427,7 +433,11 @@
 				case "a"
 					; axファイル名指定(;$a>) 行末まで（両端の半角スペース駆除）
 					getstr ts, ts, 2
-					axName = strtrim(ts)
+					ts = strtrim(ts)
+					if (axDir == "") {
+						axDir = getpath(ts, 32)
+					}
+					axName = getpath(ts, 8)
 					continue
 				swend
 			loop
@@ -450,10 +460,15 @@
 			}
 			objName = getpath(ts, 1) + ".ax"
 		} else {
-			if ((make_file_id == MAKE_AX) && (axName != "")) {
-				objName = axName
+			if (make_file_id == MAKE_AX) {
+				if (axName != "") {
+					objName = axName
+				}
+				if (axDir != "") {
+					scrDir = axDir
+				}
 			} else {
-				objName = "start.ax"
+				objName = "start.ax" ; exe自動作成は start.ax でないとエラーになる
 			}
 			exist scrDir + objName
 			axsize_old = strsize
@@ -465,7 +480,7 @@
 	;
 	hsc_ini scrName
 	hsc_refname scrName_err
-	hsc_objname objName
+	hsc_objname scrDir + objName
 	hsc_comp debug_info | (cnvutf8_use << 2), (exmacro_use ^ 1) | ((make_file_id == MAKE_EXE) << 2), debug_disp
 	if (stat != 0) {
 		goto *dispReport
