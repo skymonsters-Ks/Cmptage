@@ -187,7 +187,7 @@
 	ts = dir_cmdline
 	splitString ts, ' ', '"', '\\'
 	if (stat == 0) {
-		ts = strf("%s %s\n\nauthor: %s\nbuild: date %s %s HSP ver. %x", CAPTION, VERSION, AUTHOR, __date__, __time__, hspver)
+		ts = strf("%s %s\n\nauthor: %s\nbuild: date %s %s HSP ver.%x", CAPTION, VERSION, AUTHOR, __date__, __time__, hspver)
 #ifdef CONSOLE
 		mes ts
 #else
@@ -460,6 +460,7 @@
 			}
 			objName = getpath(ts, 1) + ".ax"
 		} else {
+			objName = "start.ax"
 			if (make_file_id == MAKE_AX) {
 				if (axName != "") {
 					objName = axName
@@ -467,8 +468,6 @@
 				if (axDir != "") {
 					scrDir = axDir
 				}
-			} else {
-				objName = "start.ax" ; exeé©ìÆçÏê¨ÇÕ start.ax Ç≈Ç»Ç¢Ç∆ÉGÉâÅ[Ç…Ç»ÇÈ
 			}
 			exist scrDir + objName
 			axsize_old = strsize
