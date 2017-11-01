@@ -491,7 +491,8 @@
 	if (debug_info == 0) {
 		switch make_file_id
 		case MAKE_EXE
-			hsc3_make dir_exe + "\\runtime"
+			exist dir_exe + "\\iconins.exe"
+			hsc3_make dir_exe + "\\runtime", (strsize > 0)
 			if (stat) {
 				ERR_DIALOG("実行ファイル作成に失敗しました")
 			} else {
