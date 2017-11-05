@@ -3,7 +3,7 @@
 ; #define global CONSOLE
 
 #define global CAPTION  "Cmptage"
-#define global VERSION  "v.0.6.0.0"
+#define global VERSION  "v.0.6.1.0"
 #define global AUTHOR   "K-s (@skymonsters_Ks)"
 
 #ifdef CONSOLE
@@ -18,5 +18,6 @@
 #endif
 
 #packopt name EXEFILE
+#packopt icon "ico.ico"
 
 #include "src/main.hsp"
