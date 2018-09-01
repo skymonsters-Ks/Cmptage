@@ -7,13 +7,26 @@
 #include "kernel32.as"
 #include "user32.as"
 
+#define ctype ERR_DIALOG(%1) dispDialog %1, 1
+#define ctype INFO_DIALOG(%1) dispDialog %1
+
+#module
+
+#deffunc dispDialog str msg, int type
+
+	if (type) {
+		s = "Error - "
+	} else {
+		s = "Info - "
+	}
 #ifdef CONSOLE
-#define ctype ERR_DIALOG(%1) mes CAPTION + " Error - " + %1
-#define ctype INFO_DIALOG(%1) mes CAPTION + " Info - " + %1
+	mes CAPTION + " " + s + msg
 #else
-#define ctype ERR_DIALOG(%1) dialog %1, 1, "Error - " + CAPTION
-#define ctype INFO_DIALOG(%1) dialog %1, , "Info - " + CAPTION
+	dialog msg, type, s + CAPTION
 #endif
+	return
+
+#global
 
 #define DEFAULT_RUNTIME "hsp3.exe"
 #define SOURCE_CONVERTER "hsp3cnv.exe"
@@ -207,7 +220,8 @@
 	report_disp = 0  ; 結果レポート表示フラグ
 	cmdline_use = 0  ; コマンドラインウィンドウ使用フラグ
 	exmacro_use = 1  ; HSP拡張マクロ使用フラグ
-	cnvutf8_use = 0  ; UTF-8コンパイルフラグ
+	inputf8_use = 0  ; UTF-8入力フラグ
+	cnvutf8_use = 0  ; UTF-8変換フラグ
 	make_file_id = 0  ; ファイル生成フラグ（MAKE_xxx）
 	exdefine_use = 0  ; 拡張定義使用フラグ
 	hwnd_tpEdit = 0  ; hsptmp使用フラグ（TeraPadエディットコントロールのハンドル）
@@ -254,7 +268,18 @@
 					}
 				}
 				continue
+			case "i"
+				if (cnvutf8_use) {
+					ERR_DIALOG("オプション /i と /u は併用できません")
+					end
+				}
+				inputf8_use = 1
+				continue
 			case "u"
+				if (inputf8_use) {
+					ERR_DIALOG("オプション /u と /i は併用できません")
+					end
+				}
 				cnvutf8_use = 1
 				continue
 			case "ma"
@@ -480,7 +505,7 @@
 	hsc_ini scrName
 	hsc_refname scrName_err
 	hsc_objname scrDir + objName
-	hsc_comp debug_info | (cnvutf8_use << 2), (exmacro_use ^ 1) | ((make_file_id == MAKE_EXE) << 2), debug_disp
+	hsc_comp debug_info | (cnvutf8_use << 2), (exmacro_use ^ 1) | ((make_file_id == MAKE_EXE) << 2) | (inputf8_use << 5), debug_disp
 	if (stat != 0) {
 		goto *dispReport
 	}
