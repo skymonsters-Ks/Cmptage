@@ -31,6 +31,9 @@
 #define DEFAULT_RUNTIME "hsp3.exe"
 #define SOURCE_CONVERTER "hsp3cnv.exe"
 #define SCRIPT_TMPFILE "hsptmp"
+#define DEFAULT_OBJ "obj"
+#define DEFAULT_AX "start.ax"
+#define PACK_FILE "packfile"
 #define EXDEF_FILE ".cmpexdef"
 #define UNDEF_FILE "???"
 
@@ -225,6 +228,7 @@
 	make_file_id = 0  ; ファイル生成フラグ（MAKE_xxx）
 	exdefine_use = 0  ; 拡張定義使用フラグ
 	hwnd_tpEdit = 0  ; hsptmp使用フラグ（TeraPadエディットコントロールのハンドル）
+	deltmp_use = 0  ; 中間ファイル削除フラグ
 
 	sdim runOption, 512  ; 起動オプション
 	sdim exPath, 256  ; 拡張定義での変更ディレクトリ
@@ -308,6 +312,9 @@
 					if (s == "utf8") : cnvUTF = 2
 					if (s == "sjis") : cnvUTF = 1
 				}
+				continue
+			case "del"
+				deltmp_use = 1
 				continue
 			case "r"
 				report_disp = 1
@@ -475,7 +482,7 @@
 	}
 
 	if (debug_info) {
-		objName = "obj"
+		objName = DEFAULT_OBJ
 	} else {
 		if (make_file_id == MAKE_CPP) {
 			if (scrName_err == UNDEF_FILE) {
@@ -485,7 +492,7 @@
 			}
 			objName = getpath(ts, 1) + ".ax"
 		} else {
-			objName = "start.ax"
+			objName = DEFAULT_AX
 			if (make_file_id == MAKE_AX) {
 				if (axName != "") {
 					objName = axName
@@ -586,7 +593,7 @@
 			INFO_DIALOG(fn + ct(1) + " を作成しました")
 			swbreak
 		swend
-		end
+		goto *bye
 	}
 
 
@@ -642,7 +649,7 @@
 	}
 	hsc3_run ts
 
-	end
+	goto *bye
 
 *dispReport
 
@@ -656,6 +663,7 @@
 #ifdef CONSOLE
 	mes CAPTION + " - 結果レポート: " + scrName_err
 	mes ts
+	goto *bye
 #else
 	screen 0, 400, 242, 2
 	syscolor 15
@@ -670,12 +678,23 @@
 	objsel 1
 	title "結果レポート: " + scrName_err + " - " + CAPTION
 	gsel 0, 1
+	onexit goto *bye
 	stop
 
 *evKey2
-	if ((wparam == 13) | (wparam == 27)) : end  ; [Enter] or [esc]
+	if ((wparam == 13) | (wparam == 27)) : goto *bye  ; [Enter] or [esc]
 	stop
 #endif
 
 *bye
+	if (deltmp_use) : if (make_file_id != MAKE_AX) {
+		tl = DEFAULT_OBJ, PACK_FILE, DEFAULT_AX, SCRIPT_TMPFILE
+		foreach tl
+			f = scrDir + tl(cnt)
+			exist f
+			if (strsize >= 0) {
+				delete f
+			}
+		loop
+	}
 	end
