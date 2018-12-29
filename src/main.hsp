@@ -250,7 +250,6 @@
 			}
 			exist file
 			file_exist = (strsize >= 0)
-			continue
 		} else {
 			getstr opt, param, 1, '='
 			switch opt
@@ -260,12 +259,12 @@
 				} else {
 					cmdline_use = 1
 				}
-				continue
+				swbreak
 			case "d"
 				debug_info = 1
 				debug_disp = 1
 				make_file_id = 0
-				continue
+				swbreak
 			case "e"
 				exdefine_use = 1
 				exLoadAll = 0
@@ -275,21 +274,21 @@
 						exLoadAll = 1
 					}
 				}
-				continue
+				swbreak
 			case "i"
 				if (cnvutf8_use) {
 					ERR_DIALOG("オプション /i と /u は併用できません")
 					end
 				}
 				inputf8_use = 1
-				continue
+				swbreak
 			case "u"
 				if (inputf8_use) {
 					ERR_DIALOG("オプション /u と /i は併用できません")
 					end
 				}
 				cnvutf8_use = 1
-				continue
+				swbreak
 			case "ma"
 				debug_info = 0
 				debug_disp = 0
@@ -299,12 +298,12 @@
 					axDir = getpath(s, 32)
 					axName = getpath(s, 8)
 				}
-				continue
+				swbreak
 			case "me"
 				debug_info = 0
 				debug_disp = 0
 				make_file_id = MAKE_EXE
-				continue
+				swbreak
 			case "mc"
 				debug_info = 0
 				debug_disp = 0
@@ -316,13 +315,13 @@
 					if (s == "utf8") : cnvUTF = 2
 					if (s == "sjis") : cnvUTF = 1
 				}
-				continue
+				swbreak
 			case "del"
 				deltmp_use = 1
-				continue
+				swbreak
 			case "r"
 				report_disp = 1
-				continue
+				swbreak
 			case "t"
 				; TeraPad 専用
 				; ウィンドウハンドルからエディットコントロールのハンドルを取得
@@ -334,9 +333,9 @@
 					ERR_DIALOG("エディットコントロールのハンドル取得失敗\n（/t=オプションはTeraPad専用です）")
 					end
 				}
-				continue
+				swbreak
 			default
-				ERR_DIALOG(param + " は不正なオプションです")
+				ERR_DIALOG("/" + opt + " は不正なオプションです")
 				end
 			swend
 		}
