@@ -1,23 +1,11 @@
 ;$c>"%f/copy.hsp"
 
-; #define global CONSOLE
-
-#define global CAPTION  "Cmptage"
-#define global VERSION  "v.0.7.3.0"
-#define global AUTHOR   "K-s (@skymonsters_Ks)"
-
-#ifdef CONSOLE
-#define global EXEFILE "cmptage_cl"
-#runtime "hsp3cl"
-#else
-#define global EXEFILE "cmptage"
-#runtime "hsp3c"
+#packopt name "cmptage"
+#packopt icon "ico.ico"
 #packopt xsize 1
 #packopt ysize 1
 #packopt hide 1
-#endif
 
-#packopt name EXEFILE
-#packopt icon "ico.ico"
+#runtime "hsp3c"
 
 #include "src/main.hsp"

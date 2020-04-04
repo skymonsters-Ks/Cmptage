@@ -1,6 +1,10 @@
 ;$s>../make.hsp
 ;$c>"%f/copy.hsp"
 
+#define global CAPTION  "Cmptage"
+#define global VERSION  "v.0.7.3.1"
+#define global AUTHOR   "K-s (@skymonsters_Ks)"
+
 #include "hspcmp.as"
 #include "hspext.as"
 #include "hspinet.as"

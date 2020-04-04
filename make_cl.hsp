@@ -1,0 +1,10 @@
+;$c>"%f/copy.hsp"
+
+#packopt name "cmptage_cl"
+#packopt icon "ico.ico"
+
+#runtime "hsp3cl"
+
+#define global CONSOLE
+
+#include "src/main.hsp"
