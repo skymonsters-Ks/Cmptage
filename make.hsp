@@ -3,7 +3,7 @@
 ; #define global CONSOLE
 
 #define global CAPTION  "Cmptage"
-#define global VERSION  "v.0.7.2.1"
+#define global VERSION  "v.0.7.3.0"
 #define global AUTHOR   "K-s (@skymonsters_Ks)"
 
 #ifdef CONSOLE

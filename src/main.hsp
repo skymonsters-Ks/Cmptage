@@ -41,6 +41,7 @@
 #enum MAKE_EXE = 1
 #enum MAKE_AX
 #enum MAKE_CPP
+#enum MAKE_STRMAP
 
 #define EX_LOAD_SIZE 512
 
@@ -289,6 +290,11 @@
 				}
 				cnvutf8_use = 1
 				swbreak
+			case "mm"
+				debug_info = 0
+				debug_disp = 0
+				make_file_id = MAKE_STRMAP
+				swbreak
 			case "ma"
 				debug_info = 0
 				debug_disp = 0
@@ -487,14 +493,23 @@
 	if (debug_info) {
 		objName = DEFAULT_OBJ
 	} else {
-		if (make_file_id == MAKE_CPP) {
+		switch make_file_id
+		case MAKE_CPP
+		case MAKE_STRMAP
 			if (scrName_err == UNDEF_FILE) {
 				ts = scrName
 			} else {
 				ts = scrName_err
 			}
-			objName = getpath(ts, 1) + ".ax"
-		} else {
+			objName = getpath(ts, 1)
+			if (make_file_id == MAKE_STRMAP) {
+				objName += ".strmap"
+			} else {
+				objName += ".ax"
+			}
+			swbreak
+		case MAKE_EXE
+		case MAKE_AX
 			objName = DEFAULT_AX
 			if (make_file_id == MAKE_AX) {
 				if (axName != "") {
@@ -503,10 +518,11 @@
 				if (axDir != "") {
 					scrDir = axDir
 				}
+				exist scrDir + objName
+				axsize_old = strsize
 			}
-			exist scrDir + objName
-			axsize_old = strsize
-		}
+			swbreak
+		swend
 	}
 
 
@@ -514,14 +530,20 @@
 	;
 	hsc_ini scrName
 	hsc_refname scrName_err
-	hsc_objname scrDir + objName
-	hsc_comp debug_info | (cnvutf8_use << 2), (exmacro_use ^ 1) | ((make_file_id == MAKE_EXE) << 2) | (inputf8_use << 5), debug_disp
+	if (dir_cur + "\\" == scrDir) {
+		hsc_objname objName
+	} else {
+		hsc_objname scrDir + objName
+	}
+#define COMP_PRM1 debug_info | (cnvutf8_use << 2) | ((make_file_id == MAKE_STRMAP) << 3)
+#define COMP_PRM2 (exmacro_use ^ 1) | ((make_file_id == MAKE_EXE) << 2) | (inputf8_use << 5)
+	hsc_comp COMP_PRM1, COMP_PRM2, debug_disp
 	if (stat != 0) {
 		goto *dispReport
 	}
 
 
-	; ファイル作成（exe, ax, cpp）
+	; ファイル作成（exe, ax, strmap, cpp）
 	;
 	if (debug_info == 0) {
 		switch make_file_id
@@ -553,6 +575,9 @@
 				ts = ""
 			}
 			INFO_DIALOG(objName + " を作成しました : " + axsize + " バイト" + ts)
+			swbreak
+		case MAKE_STRMAP
+			INFO_DIALOG(objName + " を作成しました")
 			swbreak
 		case MAKE_CPP
 			sdim buf, 32000
