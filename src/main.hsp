@@ -1,9 +1,9 @@
 ;$s>../make.hsp
-;$c>"%f/copy.hsp"
+;$f>sjis
 
 #define global CAPTION  "Cmptage"
-#define global VERSION  "v.0.7.3.1"
-#define global AUTHOR   "K-s (@skymonsters_Ks)"
+#define global VERSION  "v.0.8.0.0"
+#define global AUTHOR   "K-s (@skymonsters-Ks)"
 
 #include "hspcmp.as"
 #include "hspext.as"
@@ -455,7 +455,7 @@
 				getstr opt, ts, 0, '>'
 				switch opt
 				case "s"
-					; コンパイル対象変更(;$s>) 行末まで（パス端の半角スペース駆除）
+					; コンパイル対象変更(;$s>) 行末まで（パス端の半角スペース除去）
 					if (hwnd_tpEdit) {
 						ERR_DIALOG("/t= オプションとコンパイル対象変更は併用できません")
 						end
@@ -470,20 +470,31 @@
 					exPath = getpath(ts, 32)
 					scrName = getpath(ts, 8)
 					scrName_err = scrName
-					continue
+					swbreak
 				case "c"
 					; コマンドライン指定(;$c>) 行末まで
 					getstr runOption, ts, 2
-					continue
+					swbreak
 				case "a"
-					; axファイル名指定(;$a>) 行末まで（両端の半角スペース駆除）
+					; axファイル名指定(;$a>) 行末まで（両端の半角スペース除去）
 					getstr ts, ts, 2
 					ts = strtrim(ts)
 					if (axDir == "") {
 						axDir = getpath(ts, 32)
 					}
 					axName = getpath(ts, 8)
-					continue
+					swbreak
+				case "f"
+					; 文字コードモード指定(;$f>) 行末まで（両端の半角スペース除去）
+					getstr ts, ts, 2
+					ts = toLower(strtrim(ts))
+					inputf8_use = 0
+					cnvutf8_use = 0
+					switch ts
+					case "utf8in"  : inputf8_use = 1 : swbreak
+					case "utf8cnv" : cnvutf8_use = 1 : swbreak
+					swend
+					swbreak
 				swend
 			loop
 		loop
